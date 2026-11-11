@@ -34,16 +34,19 @@ class RegisterResource(Resource):
             return {"error": "Validation failed", "details": err.messages}, 400
 
         # Check existing user
-        if User.objects(email=data["email"].lower()).first():
-            return {"error": "Email is already registered."}, 409
+        try:
+            if User.objects(email=data["email"].lower()).first():
+                return {"error": "Email is already registered."}, 409
 
-        password_hash = AuthService.hash_password(data["password"])
-        user = User(
-            email=data["email"].lower().strip(),
-            name=data["name"].strip(),
-            password_hash=password_hash
-        )
-        user.save()
+            password_hash = AuthService.hash_password(data["password"])
+            user = User(
+                email=data["email"].lower().strip(),
+                name=data["name"].strip(),
+                password_hash=password_hash
+            )
+            user.save()
+        except Exception as db_err:
+            return {"error": f"Database connection error: {str(db_err)}"}, 500
 
         # Send welcome email asynchronously
         EmailService.send_welcome_email(user.email, user.name)
@@ -68,7 +71,11 @@ class LoginResource(Resource):
         except ValidationError as err:
             return {"error": "Validation failed", "details": err.messages}, 400
 
-        user = User.objects(email=data["email"].lower().strip()).first()
+        try:
+            user = User.objects(email=data["email"].lower().strip()).first()
+        except Exception as db_err:
+            return {"error": f"Database connection error: {str(db_err)}"}, 500
+
         if not user or not AuthService.verify_password(data["password"], user.password_hash):
             return {"error": "Invalid email or password."}, 401
 

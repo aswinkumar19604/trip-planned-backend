@@ -12,9 +12,11 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=30)
     
     # MongoDB Config (mongoengine)
+    mongo_host = os.getenv("MONGO_URI") or os.getenv("MONGODB_URI") or "mongodb://127.0.0.1:27017/trip_planner_db"
     MONGODB_SETTINGS = {
-        'host': os.getenv("MONGO_URI", "mongodb://127.0.0.1:27017/trip_planner_db"),
+        'host': mongo_host,
         'connect': False,
+        'serverSelectionTimeoutMS': 5000,
     }
     
     # Email SMTP Settings
