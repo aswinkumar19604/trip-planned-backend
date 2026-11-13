@@ -150,5 +150,70 @@ class TripPlannerApiTestCase(unittest.TestCase):
         trips_list = list_res.get_json()["trips"]
         self.assertEqual(len(trips_list), 2)
 
+    def test_03_itinerary_management(self):
+        # Register user and create trip
+        reg_res = self.client.post('/api/v1/auth/register', json={
+            "email": "planner@example.com",
+            "password": "securepassword123",
+            "name": "Planner"
+        })
+        token = reg_res.get_json()["token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        create_res = self.client.post('/api/v1/trips', json={
+            "name": "Weekend Getaway",
+            "trip_type": "packaged",
+            "members": ["Aswin", "Kiran"],
+            "total_budget": 5000.0
+        }, headers=headers)
+        trip_id = create_res.get_json()["trip"]["id"]
+
+        # 1. Add Day 1 item
+        item1_res = self.client.post(f'/api/v1/trips/{trip_id}/itinerary', json={
+            "day": 1,
+            "time": "09:00 AM",
+            "title": "Breakfast & Briefing",
+            "location": "Resort Dining",
+            "notes": "Discuss daily plan"
+        }, headers=headers)
+        self.assertEqual(item1_res.status_code, 201)
+        item1 = item1_res.get_json()["item"]
+        item1_id = item1["id"]
+        self.assertEqual(item1["title"], "Breakfast & Briefing")
+        self.assertEqual(item1["day"], 1)
+
+        # 2. Add Day 2 item
+        item2_res = self.client.post(f'/api/v1/trips/{trip_id}/itinerary', json={
+            "day": 2,
+            "time": "11:00 AM",
+            "title": "Sightseeing & Boating",
+            "location": "Boathouse",
+            "notes": "Wear life jackets"
+        }, headers=headers)
+        self.assertEqual(item2_res.status_code, 201)
+
+        # 3. Get all itinerary items
+        get_res = self.client.get(f'/api/v1/trips/{trip_id}/itinerary', headers=headers)
+        self.assertEqual(get_res.status_code, 200)
+        items = get_res.get_json()["itinerary"]
+        self.assertEqual(len(items), 2)
+
+        # 4. Update item (mark as completed)
+        update_res = self.client.put(f'/api/v1/trips/{trip_id}/itinerary/{item1_id}', json={
+            "is_completed": True,
+            "notes": "Completed on time!"
+        }, headers=headers)
+        self.assertEqual(update_res.status_code, 200)
+        updated_item = update_res.get_json()["item"]
+        self.assertTrue(updated_item["is_completed"])
+        self.assertEqual(updated_item["notes"], "Completed on time!")
+
+        # 5. Delete Day 2 item
+        item2_id = item2_res.get_json()["item"]["id"]
+        del_res = self.client.delete(f'/api/v1/trips/{trip_id}/itinerary/{item2_id}', headers=headers)
+        self.assertEqual(del_res.status_code, 200)
+        remaining = del_res.get_json()["itinerary"]
+        self.assertEqual(len(remaining), 1)
+
 if __name__ == '__main__':
     unittest.main()
