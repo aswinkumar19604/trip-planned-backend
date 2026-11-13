@@ -41,6 +41,8 @@ class Trip(Document):
     trip_type = StringField(required=True, choices=["packaged", "unpackaged"], default="packaged")
     members = ListField(StringField(max_length=100), required=True)
     total_budget = FloatField(default=0.0)
+    start_date = StringField(max_length=20, default="")
+    end_date = StringField(max_length=20, default="")
     is_completed = BooleanField(default=False)
     itinerary = ListField(EmbeddedDocumentField(ItineraryItem), default=list)
     created_at = DateTimeField(default=utc_now)
@@ -53,6 +55,8 @@ class Trip(Document):
             "trip_type": self.trip_type,
             "members": self.members,
             "total_budget": self.total_budget,
+            "start_date": self.start_date or "",
+            "end_date": self.end_date or "",
             "is_completed": bool(self.is_completed),
             "itinerary": [item.to_dict() for item in self.itinerary] if self.itinerary else [],
             "created_at": self.created_at.isoformat() if self.created_at else None

@@ -24,3 +24,4 @@ class UpdateItineraryItemSchema(Schema):
     location = fields.String()
     notes = fields.String()
     is_completed = fields.Boolean()
+

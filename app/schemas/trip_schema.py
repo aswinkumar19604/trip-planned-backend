@@ -18,6 +18,8 @@ class CreateTripSchema(Schema):
         load_default=0.0,
         validate=validate.Range(min=0.0, error="Total budget cannot be negative.")
     )
+    start_date = fields.String(load_default="")
+    end_date = fields.String(load_default="")
 
     @pre_load
     def process_members(self, data, **kwargs):
@@ -44,6 +46,8 @@ class TripResponseSchema(Schema):
     trip_type = fields.String()
     members = fields.List(fields.String())
     total_budget = fields.Float()
+    start_date = fields.String()
+    end_date = fields.String()
     is_completed = fields.Boolean()
     created_at = fields.String()
 

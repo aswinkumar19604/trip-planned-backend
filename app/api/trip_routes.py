@@ -17,6 +17,8 @@ create_trip_model = trips_ns.model('CreateTrip', {
     'trip_type': fields.String(required=True, description='packaged or unpackaged', example='packaged'),
     'members': fields.Raw(required=True, description='Array of member names or count', example=['Arun', 'Divya', 'Kumar', 'Meena']),
     'total_budget': fields.Float(required=False, description='Total budget for packaged trip', example=12000.0),
+    'start_date': fields.String(required=False, description='Start date YYYY-MM-DD', example='2026-11-14'),
+    'end_date': fields.String(required=False, description='End date YYYY-MM-DD', example='2026-11-15'),
 })
 
 @trips_ns.route('')
@@ -59,7 +61,9 @@ class TripListResource(Resource):
             name=data["name"].strip(),
             trip_type=data["trip_type"],
             members=data["members"],
-            total_budget=data.get("total_budget", 0.0)
+            total_budget=data.get("total_budget", 0.0),
+            start_date=data.get("start_date", "").strip(),
+            end_date=data.get("end_date", "").strip()
         )
         trip.save()
 

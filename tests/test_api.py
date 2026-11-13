@@ -83,7 +83,9 @@ class TripPlannerApiTestCase(unittest.TestCase):
             "name": "Courtallam Trip",
             "trip_type": "packaged",
             "members": ["Arun", "Divya", "Kumar", "Meena"],
-            "total_budget": 12000.0
+            "total_budget": 12000.0,
+            "start_date": "2026-11-14",
+            "end_date": "2026-11-15"
         }
         create_res = self.client.post('/api/v1/trips', json=trip_payload, headers=headers)
         self.assertEqual(create_res.status_code, 201)
@@ -91,6 +93,8 @@ class TripPlannerApiTestCase(unittest.TestCase):
         trip_id = trip["id"]
         self.assertEqual(trip["name"], "Courtallam Trip")
         self.assertEqual(trip["total_budget"], 12000.0)
+        self.assertEqual(trip["start_date"], "2026-11-14")
+        self.assertEqual(trip["end_date"], "2026-11-15")
 
         # Add expenses exactly matching PDF Page 3:
         # 1) Hotel · Arun ₹3,200

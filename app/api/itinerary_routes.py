@@ -146,3 +146,4 @@ class SingleItineraryItemResource(Resource):
             "message": "Itinerary item deleted successfully",
             "itinerary": [i.to_dict() for i in trip.itinerary]
         }, 200
+
