@@ -19,7 +19,8 @@ class Config:
         'serverSelectionTimeoutMS': 5000,
     }
     
-    # Email Settings (Resend HTTPS API or SMTP fallback)
+    # Email Settings (Brevo API, Resend API, or SMTP fallback)
+    BREVO_API_KEY = os.getenv("BREVO_API_KEY", "").strip()
     RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
     MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.gmail.com")
     MAIL_PORT = int(os.getenv("MAIL_PORT", 587))
