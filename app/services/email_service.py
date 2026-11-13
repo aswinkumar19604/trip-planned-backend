@@ -1,3 +1,5 @@
+import json
+import urllib.request
 import smtplib
 import logging
 from email.mime.text import MIMEText
@@ -10,6 +12,7 @@ logger = logging.getLogger(__name__)
 class EmailService:
     @staticmethod
     def _send_async_email(app_config, recipient_email, recipient_name):
+        resend_api_key = app_config.get("RESEND_API_KEY")
         server = app_config.get("MAIL_SERVER")
         port = app_config.get("MAIL_PORT", 587)
         use_tls = app_config.get("MAIL_USE_TLS", True)
@@ -17,58 +20,96 @@ class EmailService:
         password = app_config.get("MAIL_PASSWORD")
         sender = app_config.get("MAIL_DEFAULT_SENDER", "welcome@tripplanner.com")
 
+        subject = "Welcome to Trip Planner! 🎒✈️"
+        html_content = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; background-color: #f7f9f8; padding: 20px; color: #111827;">
+            <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 30px; border: 1px solid #e5e7eb;">
+              <h2 style="color: #0D6B58; margin-bottom: 8px;">Trip Planner</h2>
+              <p style="font-size: 14px; color: #6b7280; margin-top: 0;">Plan together. Split fairly.</p>
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+              <h3>Welcome, {recipient_name}! 👋</h3>
+              <p>Thank you for joining <strong>Trip Planner</strong>. You're all set to organize seamless trips with your friends and family.</p>
+              <div style="background-color: #f0fdf4; border-left: 4px solid #0D6B58; padding: 12px 16px; margin: 20px 0; border-radius: 4px;">
+                <p style="margin: 0; color: #0D6B58; font-weight: bold;">Here is what you can do:</p>
+                <ul style="margin: 8px 0 0; padding-left: 20px; color: #374151;">
+                  <li>Create <strong>Packaged Trips</strong> with fixed budgets</li>
+                  <li>Create <strong>Unpackaged Trips</strong> with pay-as-you-go tracking</li>
+                  <li>Split expenses equally with zero confusion</li>
+                </ul>
+              </div>
+              <p style="color: #6b7280; font-size: 13px;">Happy travels,<br>The Trip Planner Team</p>
+            </div>
+          </body>
+        </html>
+        """
+
+        # Priority 1: Resend HTTPS API (Works on Render Free Tier via Port 443)
+        if resend_api_key:
+            try:
+                payload = {
+                    "from": "Trip Planner <onboarding@resend.dev>",
+                    "to": [recipient_email],
+                    "subject": subject,
+                    "html": html_content
+                }
+                req = urllib.request.Request(
+                    "https://api.resend.com/emails",
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={
+                        "Authorization": f"Bearer {resend_api_key}",
+                        "Content-Type": "application/json",
+                        "User-Agent": "TripPlannerApp/1.0"
+                    },
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    resp_body = resp.read().decode("utf-8")
+                    print(f"✅ [Resend API] Welcome email successfully sent to {recipient_email}: {resp_body}")
+                    logger.info(f"Welcome email sent via Resend API to {recipient_email}")
+                    return
+            except Exception as e:
+                err_msg = str(e)
+                if hasattr(e, "read"):
+                    try:
+                        err_msg = e.read().decode("utf-8")
+                    except Exception:
+                        pass
+                print(f"❌ [Resend API] Failed to send welcome email to {recipient_email}: {err_msg}")
+                logger.error(f"Resend API error: {err_msg}")
+
+        # Priority 2: SMTP (Gmail / Custom SMTP)
+        if username and password:
+            try:
+                msg = MIMEMultipart("alternative")
+                msg["Subject"] = subject
+                msg["From"] = sender
+                msg["To"] = recipient_email
+                msg.attach(MIMEText(html_content, "html"))
+
+                with smtplib.SMTP(server, port, timeout=10) as s:
+                    if use_tls:
+                        s.starttls()
+                    s.login(username, password)
+                    s.send_message(msg)
+                    print(f"✅ [SMTP] Welcome email successfully sent to {recipient_email}")
+                    logger.info(f"Welcome email successfully sent to {recipient_email}")
+                    return
+            except Exception as e:
+                print(f"❌ [SMTP] Failed to send welcome email to {recipient_email}: {str(e)}")
+                logger.error(f"Failed to send welcome email to {recipient_email}: {str(e)}")
+
         # Dev mode / unconfigured fallback: log email to console
-        if not username or not password:
-            print(f"\n=======================================================")
-            print(f"📧 [DEV EMAIL SIMULATOR] Welcome Email Sent!")
-            print(f"To: {recipient_name} <{recipient_email}>")
-            print(f"Subject: Welcome to Trip Planner - Plan Together, Split Fairly!")
-            print(f"Body: Hello {recipient_name}! Welcome to Trip Planner. Start creating packaged or unpackaged trips now!")
-            print(f"=======================================================\n")
-            return
-
-        try:
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = "Welcome to Trip Planner! 🎒✈️"
-            msg["From"] = sender
-            msg["To"] = recipient_email
-
-            html_content = f"""
-            <html>
-              <body style="font-family: Arial, sans-serif; background-color: #f7f9f8; padding: 20px; color: #111827;">
-                <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 30px; border: 1px solid #e5e7eb;">
-                  <h2 style="color: #0D6B58; margin-bottom: 8px;">Trip Planner</h2>
-                  <p style="font-size: 14px; color: #6b7280; margin-top: 0;">Plan together. Split fairly.</p>
-                  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-                  <h3>Welcome, {recipient_name}! 👋</h3>
-                  <p>Thank you for joining <strong>Trip Planner</strong>. You're all set to organize seamless trips with your friends and family.</p>
-                  <div style="background-color: #f0fdf4; border-left: 4px solid #0D6B58; padding: 12px 16px; margin: 20px 0; border-radius: 4px;">
-                    <p style="margin: 0; color: #0D6B58; font-weight: bold;">Here is what you can do:</p>
-                    <ul style="margin: 8px 0 0; padding-left: 20px; color: #374151;">
-                      <li>Create <strong>Packaged Trips</strong> with fixed budgets</li>
-                      <li>Create <strong>Unpackaged Trips</strong> with pay-as-you-go tracking</li>
-                      <li>Split expenses equally with zero confusion</li>
-                    </ul>
-                  </div>
-                  <p style="color: #6b7280; font-size: 13px;">Happy travels,<br>The Trip Planner Team</p>
-                </div>
-              </body>
-            </html>
-            """
-            msg.attach(MIMEText(html_content, "html"))
-
-            with smtplib.SMTP(server, port, timeout=10) as s:
-                if use_tls:
-                    s.starttls()
-                s.login(username, password)
-                s.send_message(msg)
-                logger.info(f"Welcome email successfully sent to {recipient_email}")
-        except Exception as e:
-            logger.error(f"Failed to send welcome email to {recipient_email}: {str(e)}")
+        print(f"\n=======================================================")
+        print(f"📧 [DEV EMAIL SIMULATOR] Welcome Email Sent!")
+        print(f"To: {recipient_name} <{recipient_email}>")
+        print(f"Subject: {subject}")
+        print(f"=======================================================\n")
 
     @classmethod
     def send_welcome_email(cls, recipient_email: str, recipient_name: str):
         app_config = {
+            "RESEND_API_KEY": current_app.config.get("RESEND_API_KEY"),
             "MAIL_SERVER": current_app.config.get("MAIL_SERVER"),
             "MAIL_PORT": current_app.config.get("MAIL_PORT"),
             "MAIL_USE_TLS": current_app.config.get("MAIL_USE_TLS"),
@@ -80,4 +121,3 @@ class EmailService:
         thread = Thread(target=cls._send_async_email, args=(app_config, recipient_email, recipient_name))
         thread.daemon = True
         thread.start()
-

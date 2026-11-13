@@ -19,7 +19,8 @@ class Config:
         'serverSelectionTimeoutMS': 5000,
     }
     
-    # Email SMTP Settings
+    # Email Settings (Resend HTTPS API or SMTP fallback)
+    RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
     MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.gmail.com")
     MAIL_PORT = int(os.getenv("MAIL_PORT", 587))
     MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "True").lower() in ("true", "1")
