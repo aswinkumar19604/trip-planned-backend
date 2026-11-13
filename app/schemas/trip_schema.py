@@ -1,6 +1,9 @@
-from marshmallow import Schema, fields, validate, pre_load, ValidationError
+from marshmallow import Schema, fields, validate, pre_load, ValidationError, EXCLUDE
 
 class CreateTripSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     name = fields.String(
         required=True,
         validate=validate.Length(min=1, error="Trip name cannot be empty.")

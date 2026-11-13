@@ -1,6 +1,9 @@
-from marshmallow import Schema, fields, validate
+from marshmallow import Schema, fields, validate, EXCLUDE
 
 class CreateItineraryItemSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     day = fields.Integer(
         required=True,
         validate=validate.OneOf([1, 2], error="Day must be 1 or 2.")
