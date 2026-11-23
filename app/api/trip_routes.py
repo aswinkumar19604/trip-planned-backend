@@ -97,6 +97,7 @@ class TripExploreResource(Resource):
         """
         destination = request.args.get('destination', '').strip()
         time_filter = request.args.get('filter', 'all').strip().lower()
+        current_user_id = get_jwt_identity()
 
         try:
             page = max(1, int(request.args.get('page', 1)))
@@ -109,6 +110,13 @@ class TripExploreResource(Resource):
             limit = 10
 
         query_params = {}
+
+        # Only show trip history from OTHER travelers (exclude current user's own trips)
+        if current_user_id:
+            if ObjectId.is_valid(current_user_id):
+                query_params['user_id__ne'] = ObjectId(current_user_id)
+            else:
+                query_params['user_id__ne'] = current_user_id
 
         # Search by destination/trip name (case-insensitive partial match)
         if destination:
