@@ -6,6 +6,7 @@ from app.api.trip_routes import trips_ns
 from app.api.expense_routes import expenses_ns
 from app.api.itinerary_routes import itinerary_ns
 from app.api.weather_routes import weather_ns
+from app.api.places_routes import places_ns
 
 api_bp = Blueprint('api', __name__, url_prefix='/api/v1')
 
@@ -33,4 +34,5 @@ api.add_namespace(trips_ns)
 api.add_namespace(expenses_ns)
 api.add_namespace(itinerary_ns)
 api.add_namespace(weather_ns)
+api.add_namespace(places_ns)
 
