@@ -3,6 +3,8 @@ from flask_restx import Namespace, Resource, fields
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
 from bson import ObjectId
+from datetime import datetime, timezone
+import math
 
 from app.models.user import User
 from app.models.trip import Trip
@@ -75,6 +77,125 @@ class TripListResource(Resource):
             "message": "Trip created successfully",
             "trip": trip_data
         }, 201
+
+@trips_ns.route('/explore')
+class TripExploreResource(Resource):
+    @jwt_required()
+    @trips_ns.doc(
+        security='Bearer Auth',
+        params={
+            'destination': 'Filter by destination name (e.g. Kodai)',
+            'filter': 'Date filter: this_month, prev_month, all',
+            'page': 'Page number (default 1)',
+            'limit': 'Items per page (default 10)'
+        }
+    )
+    def get(self):
+        """
+        Explore trip itineraries and expenses for a destination.
+        Returns sanitized history (itinerary + expenses) without personal user information.
+        """
+        destination = request.args.get('destination', '').strip()
+        time_filter = request.args.get('filter', 'all').strip().lower()
+
+        try:
+            page = max(1, int(request.args.get('page', 1)))
+        except (ValueError, TypeError):
+            page = 1
+
+        try:
+            limit = min(50, max(1, int(request.args.get('limit', 10))))
+        except (ValueError, TypeError):
+            limit = 10
+
+        query_params = {}
+
+        # Search by destination/trip name (case-insensitive partial match)
+        if destination:
+            query_params['name__icontains'] = destination
+
+        # Filter by time period
+        now = datetime.now(timezone.utc)
+        if time_filter == 'this_month':
+            start_of_this_month = datetime(now.year, now.month, 1, 0, 0, 0, tzinfo=timezone.utc)
+            query_params['created_at__gte'] = start_of_this_month
+        elif time_filter == 'prev_month':
+            if now.month == 1:
+                prev_year = now.year - 1
+                prev_month = 12
+            else:
+                prev_year = now.year
+                prev_month = now.month - 1
+            start_of_prev_month = datetime(prev_year, prev_month, 1, 0, 0, 0, tzinfo=timezone.utc)
+            start_of_this_month = datetime(now.year, now.month, 1, 0, 0, 0, tzinfo=timezone.utc)
+            query_params['created_at__gte'] = start_of_prev_month
+            query_params['created_at__lt'] = start_of_this_month
+
+        query_set = Trip.objects(**query_params).order_by('-created_at')
+        total_count = query_set.count()
+
+        # Pagination
+        skip = (page - 1) * limit
+        trips = query_set.skip(skip).limit(limit)
+
+        result = []
+        for trip in trips:
+            # Fetch all expenses for this trip
+            expenses = Expense.objects(trip_id=trip.id).order_by('created_at')
+            total_spent = sum(e.amount for e in expenses)
+
+            # Publicly sanitized expense breakdown (no personal user names)
+            expenses_list = [
+                {
+                    "id": str(e.id),
+                    "title": e.title,
+                    "amount": round(e.amount, 2),
+                    "date": e.created_at.strftime("%b %d") if e.created_at else ""
+                }
+                for e in expenses
+            ]
+
+            # Publicly sanitized itinerary breakdown
+            itinerary_list = [
+                {
+                    "id": str(item.id),
+                    "day": item.day,
+                    "time": item.time,
+                    "title": item.title,
+                    "location": item.location or "",
+                    "notes": item.notes or ""
+                }
+                for item in (trip.itinerary or [])
+            ]
+
+            result.append({
+                "id": str(trip.id),
+                "name": trip.name,
+                "trip_type": trip.trip_type,
+                "total_budget": trip.total_budget,
+                "total_spent": round(total_spent, 2),
+                "start_date": trip.start_date or "",
+                "end_date": trip.end_date or "",
+                "created_at": trip.created_at.isoformat() if trip.created_at else None,
+                "expenses_count": len(expenses_list),
+                "itinerary_count": len(itinerary_list),
+                "expenses": expenses_list,
+                "itinerary": itinerary_list
+            })
+
+        total_pages = max(1, math.ceil(total_count / limit))
+        has_next = page < total_pages
+
+        return {
+            "trips": result,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": total_count,
+                "total_pages": total_pages,
+                "has_next": has_next
+            }
+        }, 200
 
 @trips_ns.route('/<string:trip_id>')
 class TripDetailResource(Resource):
